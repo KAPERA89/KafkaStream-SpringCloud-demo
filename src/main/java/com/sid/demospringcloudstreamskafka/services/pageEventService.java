@@ -46,19 +46,4 @@ public class pageEventService {
         };
     }
 
-    @Bean
-    public Function<KStream<String,PageEvent>,KStream<String,Long>> kStreamFunction(){
-        return (input)->{
-            return input
-                    .filter((k,v)->v.getDuration()>100)
-                    .map((k,v)->new KeyValue<>(v.getName(),0L))
-                    .groupBy((k,v)->k, Grouped.with(Serdes.String(),Serdes.Long()))
-                    .windowedBy(TimeWindows.of(Duration.ofDays(5000)))
-                    .count(Materialized.as("page-count"))//stocker les resultats dans un table dans memoire
-                    .toStream()
-                    .map((k,v)->new KeyValue<>("=>"+k.window().startTime()+k.window().endTime()+k.key(),v));
-        };
-    }
-
-
 }

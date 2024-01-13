@@ -3,9 +3,7 @@ package com.sid.demospringcloudstreamskafka.web;
 import com.sid.demospringcloudstreamskafka.entities.PageEvent;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.kstream.Windowed;
-import org.apache.kafka.streams.state.KeyValueIterator;
-import org.apache.kafka.streams.state.QueryableStoreTypes;
-import org.apache.kafka.streams.state.ReadOnlyWindowStore;
+import org.apache.kafka.streams.state.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.http.MediaType;
@@ -39,20 +37,22 @@ public class PageEventRestController {
         return pageEvent;
     }
 
-    @GetMapping(value = "/analytics",produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<Map<String,Long>> analytics(){
+
+    @GetMapping(value = "/analyticsAggregate",produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<Map<String,Double>> analyticsAggregate(){
         return Flux.interval(Duration.ofSeconds(1))
-                .map(sequence->{
-                    Map<String,Long> StringLongMap=new HashMap<>();
-                    ReadOnlyWindowStore<String, Long> windowStore = interactiveQueryService.getQueryableStore("page-count", QueryableStoreTypes.windowStore());
+                .map(seq->{
+                    Map<String,Double> map=new HashMap<>();
+                    ReadOnlyWindowStore<String, Double> stats = interactiveQueryService.getQueryableStore("total-store", QueryableStoreTypes.windowStore());
                     Instant now=Instant.now();
-                    Instant from=now.minusSeconds(5000);
-                    KeyValueIterator<Windowed<String>, Long> fetchAll = windowStore.fetchAll(from, now);
-                    while (fetchAll.hasNext()){
-                        KeyValue<Windowed<String>, Long> next = fetchAll.next();
-                        StringLongMap.put(next.key.key(),next.value);
+                    Instant from=now.minusSeconds(30);
+                    KeyValueIterator<Windowed<String>, Double> windowedLongKeyValueIterator = stats.fetchAll(from, now);
+                    while (windowedLongKeyValueIterator.hasNext()){
+                        KeyValue<Windowed<String>, Double> next = windowedLongKeyValueIterator.next();
+                        map.put(next.key.key(),next.value);
                     }
-                    return StringLongMap;
-                }).share();
+                    return map;
+                });
     }
+
 }
